@@ -9,15 +9,16 @@ initial_degree = 3                                                        #initi
 p_triangular_closure = 0.8                                                #probability of triangle formation in Holme-Kim model
 
 # Holme-Kim Model generation (scale-free with tunable clustering)
-holme_kim_graph = nx.powerlaw_cluster_graph(n=n_nodes, 
+holme_kim_graph = nx.powerlaw_cluster_graph(n=n_nodes,                    #generate Holme-Kim model graph with n nodes, initial_degree edges per new node, and p for clustering
                                             m=initial_degree, 
-                                            p=p_triangular_closure)       #generate Holme-Kim model graph with n nodes, initial_degree edges per new node, and p for clustering
+                                            p=p_triangular_closure)       
 
 # Degree sequence generation for Configuration Model
-degree_sequence = [holme_kim_graph.degree(node) for node in holme_kim_graph.nodes]   #extract degree sequence from Holme-Kim graph
+degree_sequence = [holme_kim_graph.degree(node) for node in holme_kim_graph.nodes]  #extract degree sequence from Holme-Kim graph
 
 # Configuration Model generation
-configuration_graph = nx.configuration_model(degree_sequence)              #creates a multi-graph realization of the given degree sequence
+configuration_graph = nx.configuration_model(degree_sequence)             #creates a multi-graph realization of the given degree sequence
+
 
 def Link_randomise_Graph(orig_net,num_rewirings):                          #function to randomize links by rewiring edges
     _copy_net = orig_net.copy();                                           #create a copy of the original network
@@ -82,49 +83,87 @@ configuration_graph = Link_randomise_Graph(configuration_graph, 4000)      #perf
 configuration_graph = adjust_graph_without_weights(configuration_graph)     #ensure final configuration_graph is a simple graph
 
 # ----------------------------------------------------------------------
-# Additional Metrics and Comparisons
+# ADDITIONAL TYPICAL GRAPHS FOR COMPARISON
 # ----------------------------------------------------------------------
-# Clustering Coefficient
-holme_kim_clustering = nx.clustering(holme_kim_graph)                      #compute clustering for Holme-Kim graph
-configuration_clustering = nx.clustering(configuration_graph)              #compute clustering for Configuration graph
 
-# Average Nearest Neighbors Degree (KNN)
-holme_kim_knn = nx.average_neighbor_degree(holme_kim_graph)                #compute KNN for Holme-Kim graph
-configuration_knn = nx.average_neighbor_degree(configuration_graph)        #compute KNN for Configuration graph
+# 1. Erdos-Renyi (G(n, p)) Random Graph
+p_er = 0.05                                                                #probability of edge existence between any pair of nodes
+er_graph = nx.erdos_renyi_graph(n=n_nodes, p=p_er)                         #generate ER graph with n_nodes and edge probability p_er
 
-# Closeness Centrality
-holme_kim_closeness = nx.closeness_centrality(holme_kim_graph)             #closeness centrality for Holme-Kim
-configuration_closeness = nx.closeness_centrality(configuration_graph)     #closeness centrality for Configuration graph
+# 2. Watts-Strogatz (Small-World) Graph
+k_ws = 4                                                                   #each node is connected to k_ws nearest neighbors in a ring
+p_ws = 0.1                                                                 #rewiring probability
+ws_graph = nx.watts_strogatz_graph(n=n_nodes, k=k_ws, p=p_ws)              #generate Watts-Strogatz small-world graph
 
-# Additional metrics:
-# 1. Degree Assortativity
-holme_kim_assortativity = nx.degree_assortativity_coefficient(holme_kim_graph)            #degree assortativity for Holme-Kim
-configuration_assortativity = nx.degree_assortativity_coefficient(configuration_graph)    #degree assortativity for Configuration
+# 3. Barabasi-Albert (Scale-Free) Graph
+# (Holme-Kim is a variation of scale-free. Here we also add classic Barabasi-Albert for comparison)
+m_ba = 3                                                                   #edges to attach from a new node to existing nodes
+ba_graph = nx.barabasi_albert_graph(n=n_nodes, m=m_ba)                     #generate BA scale-free graph
 
-# 2. Average Shortest Path Length (if the graph is connected)
-#   We check connectivity because if the graph is not connected, average shortest path is not defined globally.
-if nx.is_connected(holme_kim_graph):
-    holme_kim_avg_path_length = nx.average_shortest_path_length(holme_kim_graph)          #average shortest path length for Holme-Kim
-else:
-    holme_kim_avg_path_length = None                                                     #not defined if graph is disconnected
+# 4. Random Geometric Graph
+radius = 0.2                                                               #radius for connection in geometric space
+rgg_graph = nx.random_geometric_graph(n=n_nodes, radius=radius)            #generate RGG
 
-if nx.is_connected(configuration_graph):
-    configuration_avg_path_length = nx.average_shortest_path_length(configuration_graph)  #average shortest path length for Configuration
-else:
-    configuration_avg_path_length = None                                                 #not defined if graph is disconnected
+# ----------------------------------------------------------------------
+# Compute metrics for all graphs (Holme-Kim, Configuration, ER, WS, BA, RGG)
+# ----------------------------------------------------------------------
 
-# 3. Betweenness Centrality distribution (sample computation - may be expensive for large graphs)
-holme_kim_betweenness = nx.betweenness_centrality(holme_kim_graph)           #compute betweenness centrality for Holme-Kim
-configuration_betweenness = nx.betweenness_centrality(configuration_graph)   #compute betweenness centrality for Configuration
+def compute_metrics(G):
+    """
+    Compute a set of metrics for a given graph G.
+    Returns a dictionary of metrics.
+    """
+    metrics = {}
+    # Clustering Coefficient
+    metrics['clustering'] = nx.clustering(G)                                #compute clustering for G
+
+    # Average Nearest Neighbors Degree (KNN)
+    metrics['knn'] = nx.average_neighbor_degree(G)                          #compute KNN for G
+
+    # Closeness Centrality
+    metrics['closeness'] = nx.closeness_centrality(G)                       #closeness centrality for G
+
+    # Degree Assortativity
+    metrics['assortativity'] = nx.degree_assortativity_coefficient(G)       #degree assortativity for G
+
+    # Average Shortest Path Length (if connected)
+    if nx.is_connected(G):                                                 #check if G is connected
+        metrics['avg_path_length'] = nx.average_shortest_path_length(G)     #avg shortest path length if connected
+    else:
+        metrics['avg_path_length'] = None                                   #not defined if disconnected
+
+    # Betweenness Centrality (sample metric - can be expensive for large graphs)
+    metrics['betweenness'] = nx.betweenness_centrality(G)                   #betweenness centrality for G
+
+    return metrics
+
+# Compute metrics for each graph
+holme_kim_metrics = compute_metrics(holme_kim_graph)
+config_metrics = compute_metrics(configuration_graph)
+er_metrics = compute_metrics(er_graph)
+ws_metrics = compute_metrics(ws_graph)
+ba_metrics = compute_metrics(ba_graph)
+rgg_metrics = compute_metrics(rgg_graph)
+
+# Print out some key metrics for comparison
+print("\n--- KEY METRICS COMPARISON ---")
+print("Holme-Kim Assortativity:", holme_kim_metrics['assortativity'])
+print("Configuration Assortativity:", config_metrics['assortativity'])
+print("ER Assortativity:", er_metrics['assortativity'])
+print("WS Assortativity:", ws_metrics['assortativity'])
+print("BA Assortativity:", ba_metrics['assortativity'])
+print("RGG Assortativity:", rgg_metrics['assortativity'])
+
+print("Holme-Kim Avg Path Length:", holme_kim_metrics['avg_path_length'])
+print("Configuration Avg Path Length:", config_metrics['avg_path_length'])
+print("ER Avg Path Length:", er_metrics['avg_path_length'])
+print("WS Avg Path Length:", ws_metrics['avg_path_length'])
+print("BA Avg Path Length:", ba_metrics['avg_path_length'])
+print("RGG Avg Path Length:", rgg_metrics['avg_path_length'])
 
 # ----------------------------------------------------------------------
 # Probability that a pair of nodes i and j are connected in the Configuration Model
-# ----------------------------------------------------------------------
-# For a Configuration Model with given degree sequence {k_i}, 
-# the expected probability that two distinct nodes i and j are connected is approximately:
-# P(i-j connected) ~ (k_i * k_j) / (2 * M), where M = total number of edges = sum(k_i)/2.
-
-# We can compute this probability for each pair and then compare with the actual existence of edges:
+# (Already computed previously)
 degree_dict_conf = dict(configuration_graph.degree())                      #get degrees of all nodes in configuration graph
 M_conf = configuration_graph.number_of_edges()                              #total number of edges in configuration graph
 pair_connection_probabilities = {}                                         #dict to store probabilities for each pair (i,j)
@@ -136,18 +175,6 @@ for i in configuration_graph.nodes():                                       #ite
             k_j = degree_dict_conf[j]                                       #degree of node j
             p_ij = (k_i * k_j) / (2.0 * M_conf)                              #theoretical probability of i-j connection in config model
             pair_connection_probabilities[(i,j)] = p_ij                      #store the probability
-
-# Note: The above theoretical probability does not necessarily equal the empirical frequency in a single realization,
-# but it gives an expected probability. For large graphs, the configuration model approaches this expectation.
-
-# ----------------------------------------------------------------------
-# Print out some of the newly computed metrics
-print("Additional Metrics:")
-print(f"Holme-Kim Degree Assortativity: {holme_kim_assortativity}")          #print degree assortativity for Holme-Kim
-print(f"Configuration Degree Assortativity: {configuration_assortativity}")  #print degree assortativity for Configuration
-
-print(f"Holme-Kim Avg Shortest Path Length: {holme_kim_avg_path_length}")     #print avg path length for Holme-Kim (if connected)
-print(f"Configuration Avg Shortest Path Length: {configuration_avg_path_length}")  #print avg path length for Configuration (if connected)
 
 # Visualize Holme-Kim Graph
 plt.figure(figsize=(8, 8))                                                  #create a figure for the Holme-Kim visualization
@@ -161,41 +188,47 @@ nx.draw_spring(configuration_graph, node_size=10, node_color="red", edge_color="
 plt.title("Configuration Model")                                            #set plot title
 plt.show()                                                                  #display the figure
 
-# Plot clustering coefficient distributions
-plt.figure(figsize=(10, 5))                                                 #create figure for clustering distribution
-plt.hist(holme_kim_clustering.values(), bins=50, alpha=0.5, label="Holme-Kim Model")       #plot Holme-Kim clustering histogram
-plt.hist(configuration_clustering.values(), bins=50, alpha=0.5, label="Configuration Model")#plot Config clustering histogram
-plt.xlabel("Clustering Coefficient")                                        #x-axis label
-plt.ylabel("Frequency")                                                     #y-axis label
-plt.legend()                                                                #add legend
-plt.title("Clustering Coefficient Distribution")                            #title
-plt.show()                                                                  #display the figure
+# Visualize ER Graph
+plt.figure(figsize=(8, 8))
+nx.draw_spring(er_graph, node_size=10, node_color="green", edge_color="gray", alpha=0.5)
+plt.title("Erdos-Renyi (G(n,p)) Model")
+plt.show()
 
-# Plot KNN vs Degree
-degree_sequence_hk, knn_values_hk = zip(*sorted(holme_kim_knn.items()))     #sort and unzip Holme-Kim KNN items
-degree_sequence_conf, knn_values_conf = zip(*sorted(configuration_knn.items()))  #sort and unzip Configuration KNN items
+# Visualize WS Graph
+plt.figure(figsize=(8, 8))
+nx.draw_spring(ws_graph, node_size=10, node_color="orange", edge_color="gray", alpha=0.5)
+plt.title("Watts-Strogatz Small-World Model")
+plt.show()
 
-plt.figure(figsize=(10, 5))                                                 #create figure for KNN plot
-plt.plot(degree_sequence_hk, knn_values_hk, 'o-', label="Holme-Kim Model")  #plot Holme-Kim KNN vs degree
-plt.plot(degree_sequence_conf, knn_values_conf, 'x-', label="Configuration Model") #plot Config KNN vs degree
-plt.xlabel("Degree")                                                        #x-axis label
-plt.ylabel("Average Nearest Neighbors Degree (KNN)")                        #y-axis label
-plt.legend()                                                                #add legend
-plt.title("Average Nearest Neighbors Degree vs Degree")                     #title
-plt.show()                                                                  #display the figure
+# Visualize BA Graph
+plt.figure(figsize=(8, 8))
+nx.draw_spring(ba_graph, node_size=10, node_color="purple", edge_color="gray", alpha=0.5)
+plt.title("Barabasi-Albert Scale-Free Model")
+plt.show()
 
-# Plot closeness centrality distributions
-plt.figure(figsize=(10, 5))                                                 #create figure for closeness distribution
-plt.hist(holme_kim_closeness.values(), bins=50, alpha=0.5, label="Holme-Kim Model")         #plot Holme-Kim closeness histogram
-plt.hist(configuration_closeness.values(), bins=50, alpha=0.5, label="Configuration Model") #plot Config closeness histogram
-plt.xlabel("Closeness Centrality")                                          #x-axis label
-plt.ylabel("Frequency")                                                     #y-axis label
-plt.legend()                                                                #add legend
-plt.title("Closeness Centrality Distribution")                              #title
-plt.show()                                                                  #display the figure
+# Visualize RGG
+plt.figure(figsize=(8, 8))
+# For RGG, we have node positions as an attribute: pos[node] = (x, y)
+pos = nx.get_node_attributes(rgg_graph, 'pos')                              #get node positions for the RGG
+nx.draw(rgg_graph, pos, node_size=10, node_color="cyan", edge_color="gray", alpha=0.5)
+plt.title("Random Geometric Graph")
+plt.show()
 
-# Note on scale-free model with high clustering:
-# The Holme-Kim model used here generates a scale-free network (degree distribution follows a power law)
-# and the parameter p (p_triangular_closure) controls the probability of adding edges
-# that create triangles, thereby controlling the clustering level.
-# A high p (close to 1) leads to a scale-free network with higher clustering.
+# Plot clustering coefficient distributions for all graphs
+plt.figure(figsize=(10, 5))
+plt.hist(holme_kim_metrics['clustering'].values(), bins=30, alpha=0.5, label="Holme-Kim")
+plt.hist(config_metrics['clustering'].values(), bins=30, alpha=0.5, label="Configuration")
+plt.hist(er_metrics['clustering'].values(), bins=30, alpha=0.5, label="Erdos-Renyi")
+plt.hist(ws_metrics['clustering'].values(), bins=30, alpha=0.5, label="Watts-Strogatz")
+plt.hist(ba_metrics['clustering'].values(), bins=30, alpha=0.5, label="Barabasi-Albert")
+plt.hist(rgg_metrics['clustering'].values(), bins=30, alpha=0.5, label="RGG")
+plt.xlabel("Clustering Coefficient")
+plt.ylabel("Frequency")
+plt.legend()
+plt.title("Clustering Coefficient Distribution for Various Graph Models")
+plt.show()
+
+# Note on scale-free models and high clustering:
+# The Holme-Kim model is a variation of scale-free networks that also includes a mechanism to create triangles,
+# resulting in higher clustering compared to the classic Barabasi-Albert scale-free model.
+# As we can see from the metrics and distributions, different models have distinct structural properties.
