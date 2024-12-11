@@ -184,6 +184,11 @@ def fit_power_law(G, graph_label):
     deg = np.array(deg)
     cnt = np.array(cnt, dtype=float)
 
+    # Avoid issues with zero counts (should not happen) or log of zero
+    if np.any(deg <= 0) or np.any(cnt <= 0):
+        print(f"Cannot fit power-law for {graph_label} due to non-positive values.")
+        return None, None
+
     x = np.log(deg)                                                        #log of degrees
     y = np.log(cnt)                                                        #log of counts
     slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)   #linear fit
@@ -234,18 +239,17 @@ def plot_metric_vs_degree(deg_array, metric_array, graph_label, metric_name, log
     Can be linear or log-log scale.
     """
     plt.figure(figsize=(7,5))
-    valid_idx = deg_array > 0                                              #filter out zero-degree nodes
+    valid_idx = (deg_array > 0) & (metric_array > 0)  # Ensure positive values for log-log fits
     deg_filtered = deg_array[valid_idx]
     metric_filtered = metric_array[valid_idx]
 
     plt.scatter(deg_filtered, metric_filtered, alpha=0.7, edgecolor='k', label='Data')  #scatter plot of metric vs degree
 
-    if loglog:
+    if loglog and len(deg_filtered) > 2 and np.all(deg_filtered > 0) and np.all(metric_filtered > 0):
         plt.xscale('log')                                                  #log scale on x
         plt.yscale('log')                                                  #log scale on y
         x_log = np.log(deg_filtered)
         y_log = np.log(metric_filtered)
-        # Only fit if enough data points
         if len(x_log) > 2:
             slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
             fit_line = np.exp(intercept + slope * x_log)
@@ -338,99 +342,104 @@ plt.title("Configuration Model - Final Visualization")
 plt.show()
 
 # ---------------------------------------------
-# Additional comparison plots based on the given summary:
-# Use previously computed values from the small-world and power-law fits.
+# Additional comparison plots based on the computed small-world and power-law values:
+# First, check that we have valid values from the small-world comparison:
+if hk_L is not None and hk_C is not None and hk_L_rand is not None and hk_C_rand is not None:
+    hk_avg_path_g = hk_L
+    hk_clustering_g = hk_C
+    hk_avg_path_rand = hk_L_rand
+    hk_clustering_rand = hk_C_rand
+    hk_c_over_c_rand = hk_clustering_g / hk_clustering_rand if hk_clustering_rand != 0 else None
+    hk_l_over_l_rand = hk_avg_path_g / hk_avg_path_rand if hk_avg_path_rand != 0 else None
+else:
+    hk_avg_path_g = hk_clustering_g = hk_avg_path_rand = hk_clustering_rand = hk_c_over_c_rand = hk_l_over_l_rand = None
 
-# Given statistics from the summary (these would normally be derived from computations, but are included for clarity):
-hk_avg_path_g = hk_L       #Holme-Kim Graph average path length
-hk_clustering_g = hk_C     #Holme-Kim Graph clustering
-hk_avg_path_rand = hk_L_rand  #Holme-Kim Graph random equivalent avg path length
-hk_clustering_rand = hk_C_rand #Holme-Kim Graph random equivalent clustering
+if conf_L is not None and conf_C is not None and conf_L_rand is not None and conf_C_rand is not None:
+    conf_avg_path_g = conf_L
+    conf_clustering_g = conf_C
+    conf_avg_path_rand = conf_L_rand
+    conf_clustering_rand = conf_C_rand
+    conf_c_over_c_rand = conf_clustering_g / conf_clustering_rand if conf_clustering_rand != 0 else None
+    conf_l_over_l_rand = conf_avg_path_g / conf_avg_path_rand if conf_avg_path_rand != 0 else None
+else:
+    conf_avg_path_g = conf_clustering_g = conf_avg_path_rand = conf_clustering_rand = conf_c_over_c_rand = conf_l_over_l_rand = None
 
-# Ratios for Holme-Kim
-hk_c_over_c_rand = hk_clustering_g / hk_clustering_rand if (hk_clustering_g is not None and hk_clustering_rand != 0) else None
-hk_l_over_l_rand = hk_avg_path_g / hk_avg_path_rand if (hk_avg_path_g is not None and hk_avg_path_rand != 0) else None
+hk_power_slope = hk_slope
+hk_power_r2 = hk_r2
+conf_power_slope = conf_slope
+conf_power_r2 = conf_r2
 
-conf_avg_path_g = conf_L       #Configuration Graph average path length
-conf_clustering_g = conf_C     #Configuration Graph clustering
-conf_avg_path_rand = conf_L_rand  #Configuration Graph random equivalent avg path length
-conf_clustering_rand = conf_C_rand #Configuration Graph random equivalent clustering
+hk_assortativity = holme_kim_metrics['assortativity']
+conf_assortativity = config_metrics['assortativity']
 
-# Ratios for Configuration
-conf_c_over_c_rand = conf_clustering_g / conf_clustering_rand if (conf_clustering_g is not None and conf_clustering_rand != 0) else None
-conf_l_over_l_rand = conf_avg_path_g / conf_avg_path_rand if (conf_avg_path_g is not None and conf_avg_path_rand != 0) else None
+hk_avg_path_length = holme_kim_metrics['avg_path_length']
+conf_avg_path_length = config_metrics['avg_path_length']
 
-hk_power_slope = hk_slope    #Holme-Kim power-law slope
-hk_power_r2 = hk_r2          #Holme-Kim power-law R²
-conf_power_slope = conf_slope #Configuration power-law slope
-conf_power_r2 = conf_r2       #Configuration power-law R²
+# Only plot if we have valid small-world data:
+if hk_avg_path_g is not None and hk_avg_path_rand is not None and conf_avg_path_g is not None and conf_avg_path_rand is not None:
+    # 1. Small-World Effect Comparison: Average Path Length
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].bar(['G', 'Random'], [hk_avg_path_g, hk_avg_path_rand], color=['blue', 'gray'], alpha=0.7)
+    axes[0].set_title("Holme-Kim Avg Path Length")
+    axes[0].set_ylabel("Average Path Length")
 
-hk_assortativity = holme_kim_metrics['assortativity']             #Holme-Kim assortativity
-conf_assortativity = config_metrics['assortativity']              #Configuration assortativity
+    axes[1].bar(['G', 'Random'], [conf_avg_path_g, conf_avg_path_rand], color=['red', 'gray'], alpha=0.7)
+    axes[1].set_title("Configuration Avg Path Length")
 
-hk_avg_path_length = holme_kim_metrics['avg_path_length']         #Holme-Kim average path length
-conf_avg_path_length = config_metrics['avg_path_length']          #Configuration average path length
+    plt.tight_layout()
+    plt.show()
 
-# Create comparison plots:
+    # 2. Small-World Effect Comparison: Clustering
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].bar(['G', 'Random'], [hk_clustering_g, hk_clustering_rand], color=['blue', 'gray'], alpha=0.7)
+    axes[0].set_title("Holme-Kim Clustering")
+    axes[0].set_ylabel("Clustering Coefficient")
 
-# 1. Small-World Effect Comparison: Average Path Length
-fig, axes = plt.subplots(1, 2, figsize=(10, 5))                               #create a figure with two subplots
-axes[0].bar(['G', 'Random'], [hk_avg_path_g, hk_avg_path_rand], color=['blue', 'gray'], alpha=0.7) #Holme-Kim bar plot
-axes[0].set_title("Holme-Kim Avg Path Length")                                #title for Holme-Kim plot
-axes[0].set_ylabel("Average Path Length")                                      #y-axis label
+    axes[1].bar(['G', 'Random'], [conf_clustering_g, conf_clustering_rand], color=['red', 'gray'], alpha=0.7)
+    axes[1].set_title("Configuration Clustering")
 
-axes[1].bar(['G', 'Random'], [conf_avg_path_g, conf_avg_path_rand], color=['red', 'gray'], alpha=0.7) #Configuration bar plot
-axes[1].set_title("Configuration Avg Path Length")                             #title for Configuration plot
+    plt.tight_layout()
+    plt.show()
 
-plt.tight_layout()                                                            #adjust layout
-plt.show()                                                                    #show plot
+    # 3. Small-World Ratios: C/C_rand and L/L_rand
+    if hk_c_over_c_rand is not None and hk_l_over_l_rand is not None and conf_c_over_c_rand is not None and conf_l_over_l_rand is not None:
+        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+        axes[0].bar(['C/C_rand', 'L/L_rand'], [hk_c_over_c_rand, hk_l_over_l_rand], color=['blue', 'blue'], alpha=0.7)
+        axes[0].set_title("Holme-Kim Small-World Effect")
+        axes[0].set_ylabel("Ratio")
 
-# 2. Small-World Effect Comparison: Clustering
-fig, axes = plt.subplots(1, 2, figsize=(10, 5))                               #create figure for clustering comparison
-axes[0].bar(['G', 'Random'], [hk_clustering_g, hk_clustering_rand], color=['blue', 'gray'], alpha=0.7) #Holme-Kim clustering
-axes[0].set_title("Holme-Kim Clustering")                                      #title
-axes[0].set_ylabel("Clustering Coefficient")                                   #y-axis label
+        axes[1].bar(['C/C_rand', 'L/L_rand'], [conf_c_over_c_rand, conf_l_over_l_rand], color=['red', 'red'], alpha=0.7)
+        axes[1].set_title("Configuration Small-World Effect")
 
-axes[1].bar(['G', 'Random'], [conf_clustering_g, conf_clustering_rand], color=['red', 'gray'], alpha=0.7) #Configuration clustering
-axes[1].set_title("Configuration Clustering")                                  #title
+        plt.tight_layout()
+        plt.show()
 
-plt.tight_layout()                                                            #adjust layout
-plt.show()                                                                    #show plot
+# Check if power-law fits are available before plotting
+if hk_power_slope is not None and conf_power_slope is not None:
+    # 4. Power-law Fit Slopes and R² Comparison
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+    ax1.bar(['Holme-Kim', 'Configuration'], [hk_power_slope, conf_power_slope], color=['blue', 'red'], alpha=0.7)
+    ax1.set_title("Power-law Slopes")
+    ax1.set_ylabel("Slope")
 
-# 3. Small-World Ratios: C/C_rand and L/L_rand
-fig, axes = plt.subplots(1, 2, figsize=(10, 5))                               #figure for ratios
-axes[0].bar(['C/C_rand', 'L/L_rand'], [hk_c_over_c_rand, hk_l_over_l_rand], color=['blue', 'blue'], alpha=0.7) #Holme-Kim ratios
-axes[0].set_title("Holme-Kim Small-World Effect")                              #title
-axes[0].set_ylabel("Ratio")                                                    #y-axis label
+    ax2.bar(['Holme-Kim', 'Configuration'], [hk_power_r2, conf_power_r2], color=['blue', 'red'], alpha=0.7)
+    ax2.set_title("Power-law R²")
+    ax2.set_ylabel("R²")
 
-axes[1].bar(['C/C_rand', 'L/L_rand'], [conf_c_over_c_rand, conf_l_over_l_rand], color=['red', 'red'], alpha=0.7) #Configuration ratios
-axes[1].set_title("Configuration Small-World Effect")                           #title
+    plt.tight_layout()
+    plt.show()
 
-plt.tight_layout()                                                            #adjust layout
-plt.show()                                                                    #show plot
+# Check if assortativity and path lengths are available
+if hk_assortativity is not None and conf_assortativity is not None and hk_avg_path_length is not None and conf_avg_path_length is not None:
+    # 5. Assortativity and Average Path Length Comparison
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+    ax1.bar(['Holme-Kim', 'Configuration'], [hk_assortativity, conf_assortativity], color=['blue', 'red'], alpha=0.7)
+    ax1.set_title("Assortativity Comparison")
+    ax1.set_ylabel("Assortativity Coefficient")
 
-# 4. Power-law Fit Slopes and R² Comparison
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))                         #figure with two subplots for slopes and R²
-ax1.bar(['Holme-Kim', 'Configuration'], [hk_power_slope, conf_power_slope], color=['blue', 'red'], alpha=0.7) #Slopes
-ax1.set_title("Power-law Slopes")                                             #title for slopes
-ax1.set_ylabel("Slope")                                                       #y-axis label
+    ax2.bar(['Holme-Kim', 'Configuration'], [hk_avg_path_length, conf_avg_path_length], color=['blue', 'red'], alpha=0.7)
+    ax2.set_title("Average Path Length Comparison")
+    ax2.set_ylabel("Average Path Length")
 
-ax2.bar(['Holme-Kim', 'Configuration'], [hk_power_r2, conf_power_r2], color=['blue', 'red'], alpha=0.7) #R²
-ax2.set_title("Power-law R²")                                                 #title for R²
-ax2.set_ylabel("R²")                                                          #y-axis label
-
-plt.tight_layout()                                                            #adjust layout
-plt.show()                                                                    #show plot
-
-# 5. Assortativity and Average Path Length Comparison
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))                         #figure with two subplots for assortativity and avg path length
-ax1.bar(['Holme-Kim', 'Configuration'], [hk_assortativity, conf_assortativity], color=['blue', 'red'], alpha=0.7) #assortativity comparison
-ax1.set_title("Assortativity Comparison")                                     #title
-ax1.set_ylabel("Assortativity Coefficient")                                   #y-axis label
-
-ax2.bar(['Holme-Kim', 'Configuration'], [hk_avg_path_length, conf_avg_path_length], color=['blue', 'red'], alpha=0.7) #avg path length comparison
-ax2.set_title("Average Path Length Comparison")                               #title
-ax2.set_ylabel("Average Path Length")                                         #y-axis label
-
-plt.tight_layout()                                                            #adjust layout
-plt.show()                                                                    #show plot
+    plt.tight_layout()
+    plt.show()
