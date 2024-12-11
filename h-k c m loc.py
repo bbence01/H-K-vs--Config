@@ -217,6 +217,60 @@ def print_clustering_info(G, label):
     print(f"\n--- Clustering Info ({label}) ---")
     print(f"Average Clustering Coefficient: {c:.4f}")
 
+    # Extract degree, clustering, knn arrays for plotting correlations
+def get_node_metrics(G):
+    deg = np.array([d for n,d in G.degree()])
+    nodes = list(G.nodes())
+    clust = np.array([nx.clustering(G, n) for n in nodes])
+    knn_dict = nx.average_neighbor_degree(G)
+    knn = np.array([knn_dict[n] for n in nodes])
+    return deg, clust, knn
+
+hk_deg, hk_clust, hk_knn_arr = get_node_metrics(holme_kim_graph)
+conf_deg, conf_clust, conf_knn_arr = get_node_metrics(configuration_graph)
+
+# ----------------------------------------------------------------------
+# Plotting the examined statistics:
+# 1. Clustering Coefficient as a function of Degree
+def plot_metric_vs_degree(deg, metric, graph_label, metric_name, loglog=False):
+    plt.figure(figsize=(7,5))
+    # Filter out zero or negative degrees to avoid issues with log
+    valid_idx = deg > 0
+    deg_filt = deg[valid_idx]
+    metric_filt = metric[valid_idx]
+
+    plt.scatter(deg_filt, metric_filt, alpha=0.7, edgecolor='k', label='Data')
+
+    if loglog:
+        plt.xscale('log')
+        plt.yscale('log')
+        # Fit a line in log-log space if possible
+        x_log = np.log(deg_filt)
+        y_log = np.log(metric_filt)
+        # Only fit if we have more than a few points
+        if len(x_log) > 2:
+            slope, intercept, r_value, p_value, std_err = stats.linregress(x_log, y_log)
+            fit_line = np.exp(intercept + slope * x_log)
+            plt.plot(deg_filt, fit_line, 'r--', label=f'Fit slope={slope:.2f}, R²={r_value**2:.2f}')
+
+    plt.xlabel("Degree")
+    plt.ylabel(metric_name)
+    title_str = f"{metric_name} vs Degree ({graph_label})"
+    if loglog:
+        title_str += " [Log-Log]"
+    plt.title(title_str)
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+# Clustering vs Degree
+plot_metric_vs_degree(hk_deg, hk_clust, "Holme-Kim", "Clustering Coefficient")
+plot_metric_vs_degree(conf_deg, conf_clust, "Configuration", "Clustering Coefficient")
+
+# 2. KNN as a function of Degree
+plot_metric_vs_degree(hk_deg, hk_knn_arr, "Holme-Kim", "Average Neighbor Degree (KNN)")
+plot_metric_vs_degree(conf_deg, conf_knn_arr, "Configuration", "Average Neighbor Degree (KNN)")
+
 # ----------------------------------------------------------------------
 # Visualize the Holme-Kim Graph
 plt.figure(figsize=(8, 8))                                                  #create a figure for the Holme-Kim visualization
@@ -229,6 +283,8 @@ plt.figure(figsize=(8, 8))
 nx.draw_spring(configuration_graph, node_size=10, node_color="red", edge_color="gray", alpha=0.5)
 plt.title("Configuration Model")
 plt.show()
+
+
 
 # Plot Degree Distributions
 plot_degree_distribution(holme_kim_graph, "Holme-Kim")
@@ -260,3 +316,36 @@ print("Configuration Assortativity:", config_metrics['assortativity'])
 
 print("Holme-Kim Avg Path Length:", holme_kim_metrics['avg_path_length'])
 print("Configuration Avg Path Length:", config_metrics['avg_path_length'])
+
+
+
+# ----------------------------------------------------------------------
+# Plotting the examined statistics:
+# Including log-log plots and linear fits on log-log scale
+# ----------------------------------------------------------------------
+
+
+# Clustering vs Degree (Linear and Log-Log)
+plot_metric_vs_degree(hk_deg, hk_clust, "Holme-Kim", "Clustering Coefficient", loglog=False)
+plot_metric_vs_degree(hk_deg, hk_clust, "Holme-Kim", "Clustering Coefficient", loglog=True)
+
+plot_metric_vs_degree(conf_deg, conf_clust, "Configuration", "Clustering Coefficient", loglog=False)
+plot_metric_vs_degree(conf_deg, conf_clust, "Configuration", "Clustering Coefficient", loglog=True)
+
+# KNN vs Degree (Linear and Log-Log)
+plot_metric_vs_degree(hk_deg, hk_knn_arr, "Holme-Kim", "Average Neighbor Degree (KNN)", loglog=False)
+plot_metric_vs_degree(hk_deg, hk_knn_arr, "Holme-Kim", "Average Neighbor Degree (KNN)", loglog=True)
+
+plot_metric_vs_degree(conf_deg, conf_knn_arr, "Configuration", "Average Neighbor Degree (KNN)", loglog=False)
+plot_metric_vs_degree(conf_deg, conf_knn_arr, "Configuration", "Average Neighbor Degree (KNN)", loglog=True)
+
+# Visualize the Graphs
+plt.figure(figsize=(8,8))
+nx.draw_spring(holme_kim_graph, node_size=20, node_color="blue", edge_color="gray", alpha=0.5)
+plt.title("Holme-Kim Model")
+plt.show()
+
+plt.figure(figsize=(8,8))
+nx.draw_spring(configuration_graph, node_size=20, node_color="red", edge_color="gray", alpha=0.5)
+plt.title("Configuration Model")
+plt.show()
