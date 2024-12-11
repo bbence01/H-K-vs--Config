@@ -6,8 +6,8 @@ from collections import Counter                                            #impo
 import scipy.stats as stats                                               #import stats for fitting and analyzing distributions
 
 # Define the parameters for the network models
-num_nodes = 100                                                            #number of nodes in the graph
-initial_degree = 3                                                         #initial edges per new node in Holme-Kim model
+num_nodes = 500                                                            #number of nodes in the graph
+initial_degree = 4                                                         #initial edges per new node in Holme-Kim model
 p_triangular_closure = 0.8                                                 #probability of triangle formation in Holme-Kim model
 
 # Generate Holme-Kim model (scale-free with clustering)
@@ -121,6 +121,19 @@ for i in configuration_graph.nodes():                                      #iter
 # ----------------------------------------------------------------------
 # Functions for various plots and analyses
 # ----------------------------------------------------------------------
+
+# Visualize Holme-Kim Graph
+plt.figure(figsize=(8, 8))                                                 #figure for Holme-Kim visualization
+nx.draw_spring(holme_kim_graph, node_size=10, node_color="blue", edge_color="gray", alpha=0.5)
+plt.title("Holme-Kim Model Visualization")
+plt.show()
+
+# Visualize Configuration Graph
+plt.figure(figsize=(8, 8))
+nx.draw_spring(configuration_graph, node_size=10, node_color="red", edge_color="gray", alpha=0.5)
+plt.title("Configuration Model Visualization")
+plt.show()
+
 def plot_degree_distribution(G, graph_label):
     # Extract degree distribution
     degrees = [d for _, d in G.degree()]                                   #list of degrees
@@ -273,17 +286,7 @@ plot_metric_vs_degree(config_degrees, config_clustering_values, "Configuration G
 plot_metric_vs_degree(holme_kim_degrees, holme_kim_knn_values, "Holme-Kim Graph", "Average Neighbor Degree (KNN)")
 plot_metric_vs_degree(config_degrees, config_knn_values, "Configuration Graph", "Average Neighbor Degree (KNN)")
 
-# Visualize Holme-Kim Graph
-plt.figure(figsize=(8, 8))                                                 #figure for Holme-Kim visualization
-nx.draw_spring(holme_kim_graph, node_size=10, node_color="blue", edge_color="gray", alpha=0.5)
-plt.title("Holme-Kim Model Visualization")
-plt.show()
 
-# Visualize Configuration Graph
-plt.figure(figsize=(8, 8))
-nx.draw_spring(configuration_graph, node_size=10, node_color="red", edge_color="gray", alpha=0.5)
-plt.title("Configuration Model Visualization")
-plt.show()
 
 # Plot Degree Distributions
 plot_degree_distribution(holme_kim_graph, "Holme-Kim Graph")
@@ -330,16 +333,7 @@ plot_metric_vs_degree(holme_kim_degrees, holme_kim_knn_values, "Holme-Kim Graph"
 plot_metric_vs_degree(config_degrees, config_knn_values, "Configuration Graph", "Average Neighbor Degree (KNN)", loglog=False)
 plot_metric_vs_degree(config_degrees, config_knn_values, "Configuration Graph", "Average Neighbor Degree (KNN)", loglog=True)
 
-# Final Graph Visualizations with updated node size and titles
-plt.figure(figsize=(8,8))
-nx.draw_spring(holme_kim_graph, node_size=20, node_color="blue", edge_color="gray", alpha=0.5)
-plt.title("Holme-Kim Model - Final Visualization")
-plt.show()
 
-plt.figure(figsize=(8,8))
-nx.draw_spring(configuration_graph, node_size=20, node_color="red", edge_color="gray", alpha=0.5)
-plt.title("Configuration Model - Final Visualization")
-plt.show()
 
 # ---------------------------------------------
 # Additional comparison plots based on the computed small-world and power-law values:
@@ -443,3 +437,15 @@ if hk_assortativity is not None and conf_assortativity is not None and hk_avg_pa
 
     plt.tight_layout()
     plt.show()
+
+
+# Final Graph Visualizations with updated node size and titles
+plt.figure(figsize=(8,8))
+nx.draw_spring(holme_kim_graph, node_size=20, node_color="blue", edge_color="gray", alpha=0.5)
+plt.title("Holme-Kim Model - Final Visualization")
+plt.show()
+
+plt.figure(figsize=(8,8))
+nx.draw_spring(configuration_graph, node_size=20, node_color="red", edge_color="gray", alpha=0.5)
+plt.title("Configuration Model - Final Visualization")
+plt.show()
